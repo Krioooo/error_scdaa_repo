@@ -3,4 +3,4 @@
 ## Group members
 - Qiuying Zeng: s2695417
 - Hongting Zhou: s2646469
-- Yujia Kang: s
+- Yujia Kang: s2626062
