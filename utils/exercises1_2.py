@@ -128,3 +128,12 @@ def loglog_plot(x, y, fixed_para, change_para):
     plt.legend()
     plt.grid()
     plt.show()
+
+def compute_error_slope(x_values, y_values):
+        """
+        在 log-log 坐标下，对 (x_values, y_values) 做线性回归，返回斜率。
+        """
+        logx = np.log(x_values)
+        logy = np.log(y_values)
+        slope, _ = np.polyfit(logx, logy, 1)
+        return slope
