@@ -3,7 +3,7 @@ from scipy.integrate import quad
 import torch
 
 class LQR:
-    def __init__(self, H, M, C, D, R, sigma, T, time_grid):
+    def __init__(self, H, M, C, D, R, sigma, T, N):
         """
         初始化 LQR 类
 
@@ -11,7 +11,8 @@ class LQR:
         H, M, C, D, R: 线性二次调节器的矩阵
         sigma: 噪声项
         T: 终止时间
-        time_grid: 时间网格 (numpy array)
+        N: 时间步长
+        # time_grid: 时间网格 (numpy array)
         """
         self.H = H
         self.M = M
@@ -20,7 +21,8 @@ class LQR:
         self.R = R
         self.sigma = sigma
         self.T = T
-        self.time_grid = time_grid
+        self.N = N
+        self.time_grid = torch.linspace(0, T, N+1)
         self.S_values = self.solve_riccati_ode()
 
     def riccati_ode(self, t, S_flat):
