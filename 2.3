@@ -1,0 +1,119 @@
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+# =============================================================================
+# 1. 根据图1设置参数（使用PyTorch张量）
+# =============================================================================
+# 系统矩阵 (转换为numpy数组后再转torch tensor以保持精度)
+H = torch.tensor([[1.0, 1.0], [0.0, 1.0]], dtype=torch.float64) * 0.5
+M = torch.tensor([[1.0, 1.0], [0.0, 1.0]], dtype=torch.float64)
+sigma = torch.eye(2, dtype=torch.float64) * 0.5
+C = torch.tensor([[1.0, 0.1], [0.1, 1.0]], dtype=torch.float64) * 1.0
+D = torch.tensor([[1.0, 0.1], [0.1, 1.0]], dtype=torch.float64) * 0.1
+R = torch.tensor([[1.0, 0.3], [0.3, 1.0]], dtype=torch.float64) * 10.0
+
+# 问题参数
+T = 0.5        # 终止时间（题目中指定）
+tau = 0.1      # 熵正则强度
+gamma = 10.0   # 先验方差参数
+x0_list = [    # 初始点
+    torch.tensor([2.0, 2.0], dtype=torch.float64),
+    torch.tensor([2.0, -2.0], dtype=torch.float64),
+    torch.tensor([-2.0, -2.0], dtype=torch.float64),
+    torch.tensor([-2.0, 2.0], dtype=torch.float64),
+]
+
+# =============================================================================
+# 2. 实现LQR求解类（支持严格和软性）
+# =============================================================================
+class SoftLQRSolver:
+    def __init__(self, H, M, C, D, R, sigma, T, time_grid, tau, gamma):
+        self.H = H.numpy()  # 转换为numpy用于ODE求解
+        self.M = M.numpy()
+        self.C = C.numpy()
+        self.D = D.numpy()
+        self.R = R.numpy()
+        self.sigma = sigma.numpy()
+        self.T = T
+        self.time_grid = time_grid.numpy() if isinstance(time_grid, torch.Tensor) else time_grid
+        self.tau = tau
+        self.gamma = gamma
+        
+    def solve_riccati(self, mode='strict'):
+        def riccati_ode(t, S_flat):
+            S = S_flat.reshape(2,2)
+            if mode == 'strict':
+                A = np.linalg.inv(self.D)
+            else:
+                A = np.linalg.inv(self.D + (self.tau/(2*self.gamma**2)) * np.eye(2))
+            dS = S @ self.M @ A @ self.M.T @ S - (self.H.T @ S + S @ self.H + self.C)
+            return dS.flatten()
+        
+        S_final = self.R.flatten()
+        sol = solve_ivp(riccati_ode, [self.T, 0], S_final, t_eval=np.sort(self.time_grid),
+                        method='BDF', rtol=1e-6, atol=1e-9)
+        S_array = np.array([sol.y[:,i].reshape(2,2) for i in range(len(sol.t))])
+        return torch.tensor(S_array[::-1], dtype=torch.float64)  # 反转时间顺序
+
+# =============================================================================
+# 3. 生成时间网格并求解两种Riccati方程
+# =============================================================================
+N = 1000  # 时间步数（确保精度）
+time_grid = torch.linspace(0, T, N+1, dtype=torch.float64)
+
+# 严格LQR求解
+solver_strict = SoftLQRSolver(H, M, C, D, R, sigma, T, time_grid, tau=0, gamma=0)
+S_strict = solver_strict.solve_riccati('strict')
+
+# 软性LQR求解
+solver_soft = SoftLQRSolver(H, M, C, D, R, sigma, T, time_grid, tau, gamma)
+S_soft = solver_soft.solve_riccati('soft')
+
+# =============================================================================
+# 4. 轨迹模拟（确保噪声一致）
+# =============================================================================
+def simulate(x0, S_array, mode, dW):
+    x = x0.clone()
+    traj = torch.zeros(N+1, 2, dtype=torch.float64)
+    traj[0] = x
+    for i in range(N):
+        S = S_array[i]
+        if mode == 'strict':
+            u = - torch.linalg.solve(D, M.T @ S) @ x
+        else:
+            A = torch.linalg.inv(D + (tau/(2*gamma**2)) * torch.eye(2))
+            mean = - A @ M.T @ S @ x
+            cov = tau * A
+            u = torch.tensor(np.random.multivariate_normal(mean.numpy(), cov.numpy()), dtype=torch.float64)
+        dx = (H @ x + M @ u) * (T/N) + sigma @ dW[i]
+        x += dx
+        traj[i+1] = x
+    return traj.numpy()
+
+# 预生成噪声（确保所有轨迹使用相同的dW）
+np.random.seed(42)
+dW = np.random.randn(N, 2) * np.sqrt(T/N)
+
+# 模拟所有初始点
+plt.figure(figsize=(10, 8))
+colors = ['C0', 'C1', 'C2', 'C3']
+for idx, x0 in enumerate(x0_list):
+    # 严格LQR
+    traj_strict = simulate(x0, S_strict, 'strict', dW)
+    # 软性LQR
+    traj_soft = simulate(x0, S_soft, 'soft', dW)
+    
+    plt.plot(traj_strict[:,0], traj_strict[:,1], 
+             color=colors[idx], linestyle='-', label=f'Strict {x0.numpy()}')
+    plt.plot(traj_soft[:,0], traj_soft[:,1], 
+             color=colors[idx], linestyle='--', label=f'Soft {x0.numpy()}')
+
+plt.title("Strict vs. Soft LQR Trajectories (τ=0.1, γ=10)")
+plt.xlabel("State x₁")
+plt.ylabel("State x₂")
+plt.grid(True)
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
