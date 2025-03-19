@@ -29,7 +29,7 @@ class MonteCarloSDE:
         self.T = T
         self.N = N
         self.tau = T/N
-        self.time_grid = torch.arange(0, self.tau*(N+1), step = self.tau)
+        self.time_grid = torch.linspace(0, T, N + 1)
         self.S_values = self.solve_riccati_ode()
 
     def riccati_ode(self, t, S_flat):
@@ -55,7 +55,7 @@ class MonteCarloSDE:
     def cal_alpha_coe(self, t):
         """计算控制 a(t, x) = -D^(-1) M^T S(t) """
         S_t = self.get_nearest_S(t)
-        S_t = torch.tensor(S_t, dtype=torch.float32)
+        S_t = torch.tensor(S_t, dtype = torch.float32)
         return -torch.linalg.inv(self.D) @ self.M.T @ S_t
     
     def simulate(self, x, M_samples):
@@ -121,10 +121,10 @@ def error_on_M(H, M, C, D, R, sigma, T, N_fixed, M_samples_list, v, t0, x0):
 
 def loglog_plot(x, y, fixed_para, change_para):
     plt.figure(figsize = (12, 4))
-    plt.loglog(x, y, 'o-', label = f'Error vs {change_para}')
-    plt.xlabel(f"{change_para} (log scale)")
-    plt.ylabel("Error (log scale)")
-    plt.title(f"Implicit Euler Scheme: error over {change_para} (fixed {fixed_para} = 10000)")
+    plt.loglog(x, y, 'o-', label = f'Week Error')
+    plt.xlabel(f"{change_para} (log)")
+    plt.ylabel("Error (log)")
+    plt.title(f"Implicit Euler Scheme: error over {change_para} (fixed {fixed_para})")
     plt.legend()
     plt.grid()
     plt.show()
