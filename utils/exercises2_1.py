@@ -2,6 +2,8 @@ from scipy.integrate import solve_ivp
 from scipy.integrate import quad
 from torch.distributions.multivariate_normal import MultivariateNormal
 import torch
+import numpy as np
+import matplotlib.pyplot as plt
 
 class Soft_LQR:
     def __init__(self, H, M, C, D, R, sigma, T, N, tau, gamma):
@@ -89,3 +91,74 @@ class Soft_LQR:
         # distribution
         control_dist = MultivariateNormal(mean_control, cov_control)
         return control_dist
+    
+    def simulate_trajectory(self, x0, dW):
+        """
+        使用 Euler 方法模拟 soft LQR 轨迹
+        """
+        x_traj = [x0.numpy()]
+        x_tn = x0
+        
+        dt = self.T / self.N
+        for n in range(self.N):
+            tn = n * dt
+            S_tn = self.get_nearest_S(tn)
+            S_tn = torch.tensor(S_tn, dtype = torch.float32)
+
+            # mean
+            inv_term = self.D + self.tau / (2 * (self.gamma ** 2)) * torch.eye(2)
+            mean_control = -torch.linalg.inv(inv_term) @ self.M.T @ S_tn @ x_tn     
+            
+            # covarian
+            cov_control = self.tau * inv_term
+
+            # distribution
+            control_dist = MultivariateNormal(mean_control, cov_control)
+            control_a = control_dist.sample()
+            # print(control_a)
+
+            # drift = Hx + Ma
+            drift = self.H @ x_tn + self.M @ control_a
+
+            # noise = sigma dW
+            noise = self.sigma @ dW[n]
+
+            # explicit Euler scheme
+            x_next = x_tn + drift * dt + noise
+            x_tn = x_next
+            x_traj.append(x_tn.numpy())
+
+        return np.array(x_traj)
+
+def plot_x_trajectory(initial_states, lqr, soft_lqr, dW):
+    """
+    docstring
+    """
+    plt.figure(figsize = (8, 6))
+    for i, x0 in enumerate(initial_states):
+        # simulate trajectory
+        x_traj_strict = lqr.simulate_trajectory(x0, dW)
+        x_traj_soft = soft_lqr.simulate_trajectory(x0, dW)
+
+        # Plot strict lqr trajectory
+        plt.plot(x_traj_strict[:, 0], x_traj_strict[:, 1],
+                color = 'blue', linestyle = '-', 
+                label = 'Strict LQR' if i == 0 else None)
+        # Plot the initial points of strict lqr
+        plt.plot(x0[0], x0[1],
+                color = 'blue', marker = 'o', markersize = 10)
+        
+        # Plot soft lqr trajectory
+        plt.plot(x_traj_soft[:, 0], x_traj_soft[:, 1],
+                color = 'red', linestyle = '-', 
+                label = 'Soft LQR' if i == 0 else None)
+        # Plot the initial points of strict lqr
+        plt.plot(x0[0], x0[1],
+                color = 'red', marker = 's', markersize = 6)
+        
+    plt.xlabel('x1')
+    plt.ylabel('x2')
+    plt.title('Controlled trajectories: Strict vs Soft LQR')
+    plt.grid()
+    plt.legend()
+    plt.show()   

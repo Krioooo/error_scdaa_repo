@@ -75,6 +75,7 @@ class MonteCarloSDE:
         V_values = torch.zeros(M_samples)
 
         for n in range(self.N):
+            # print(X)
             tn = n * self.tau
             coe_alpha = self.cal_alpha_coe(tn)
             A = eye_dim - self.tau * (self.H + self.M @ coe_alpha)
