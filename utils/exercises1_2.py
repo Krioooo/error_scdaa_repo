@@ -97,6 +97,9 @@ class MonteCarloSDE:
     
 
 def error_on_N(H, M, C, D, R, sigma, T, M_samples_fixed, N_step_list, v, t0, x0):
+    """
+    算error函数(v_Mc - v)
+    """
     err_N = []
 
     for N_step in N_step_list:

@@ -134,7 +134,7 @@ def plot_x_trajectory(initial_states, lqr, soft_lqr, dW):
     """
     docstring
     """
-    plt.figure(figsize = (8, 6))
+    plt.figure(figsize = (12, 8))
     for i, x0 in enumerate(initial_states):
         # simulate trajectory
         x_traj_strict = lqr.simulate_trajectory(x0, dW)
@@ -142,7 +142,7 @@ def plot_x_trajectory(initial_states, lqr, soft_lqr, dW):
 
         # Plot strict lqr trajectory
         plt.plot(x_traj_strict[:, 0], x_traj_strict[:, 1],
-                color = 'blue', linestyle = '-', 
+                color = 'blue', linestyle = '-',
                 label = 'Strict LQR' if i == 0 else None)
         # Plot the initial points of strict lqr
         plt.plot(x0[0], x0[1],
@@ -150,11 +150,11 @@ def plot_x_trajectory(initial_states, lqr, soft_lqr, dW):
         
         # Plot soft lqr trajectory
         plt.plot(x_traj_soft[:, 0], x_traj_soft[:, 1],
-                color = 'red', linestyle = '-', 
+                color = 'red', linestyle = '-',
                 label = 'Soft LQR' if i == 0 else None)
         # Plot the initial points of strict lqr
         plt.plot(x0[0], x0[1],
-                color = 'red', marker = 's', markersize = 6)
+                color = 'red', marker = 's', markersize = 5)
         
     plt.xlabel('x1')
     plt.ylabel('x2')

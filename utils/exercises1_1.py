@@ -83,9 +83,11 @@ class LQR:
 
             # a = -D^{-1} M^T S x
             control_a = -torch.linalg.inv(self.D) @self.M.T @ S_tn @ x_tn     # MC
+            # print(control_a)
 
             # drift = Hx + Ma
             drift = self.H @ x_tn + self.M @ control_a
+            # print(self.M @ control_a)
 
             # noise = sigma dW
             noise = self.sigma @ dW[n]
