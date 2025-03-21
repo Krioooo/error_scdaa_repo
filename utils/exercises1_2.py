@@ -68,6 +68,7 @@ class MonteCarloSDE:
         """
         # 复制初始状态 x0_torch，得到所有样本的初值
         X = x.unsqueeze(0).repeat(M_samples, 1)
+        torch.manual_seed(1234)
         dW = torch.randn(M_samples, self.N, 2) * np.sqrt(self.tau)
         eye_dim = torch.eye(2)
 
